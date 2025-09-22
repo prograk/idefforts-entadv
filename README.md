@@ -1,4 +1,76 @@
-# Chatbot UI Lite
+# entadv-chatbot-ui
+
+An advanced chatbot UI built with Next.js, TypeScript, and Tailwind CSS, integrating OpenAI and Pinecone for intelligent chat experiences. This project provides a customizable chat interface and backend for building AI-powered assistants, especially for extracting and summarizing meeting details from transcripts.
+
+![Chatbot UI Screenshot](./public/screenshot.png)
+
+## Features
+
+- Modern chat UI built with React and Tailwind CSS
+- Uses OpenAI's GPT-3.5-turbo for conversation and summarization
+- Integrates Pinecone for vector search and context retrieval
+- Extracts and summarizes meeting details from transcripts
+- Easily customizable prompts and UI components
+- Ready-to-deploy with Next.js
+
+## Project Structure
+
+- `components/Chat/` — Chat UI components
+- `pages/api/chat.ts` — API route for chat backend (OpenAI + Pinecone)
+- `utils/` — Utility functions for OpenAI and Pinecone
+- `types/` — TypeScript types
+- `styles/` — Global styles (Tailwind)
+
+## Getting Started
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/prograk/entadv-chatbot-ui.git
+cd entadv-chatbot-ui/chatbot-ui
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure Environment Variables
+
+Create a `.env.local` file in the root directory and add your API keys:
+
+```bash
+OPENAI_API_KEY=your-openai-key
+PINECONE_API_KEY=your-pinecone-key
+PINECONE_INDEX_NAME=your-pinecone-index
+```
+
+### 4. Run the Development Server
+
+```bash
+npm run dev
+```
+
+Visit `http://localhost:3000` to use the chatbot UI.
+
+## Customization
+
+- **Chat UI:** Edit components in `components/Chat/` to change the look and feel.
+- **Prompts:** Update system and assistant prompts in `utils/index.ts` and `pages/index.tsx`.
+- **Backend Logic:** Modify `pages/api/chat.ts` for custom OpenAI/Pinecone workflows.
+
+## Deployment
+
+Deploy easily to Vercel, Netlify, or your preferred platform. See Next.js documentation for details.
+
+## License
+
+This project is licensed under the MIT License.
+
+## Contact
+
+For questions or support, reach out to the project owner or open an issue on GitHub.
 
 A simple chatbot starter kit for OpenAI's chat model using Next.js, TypeScript, and Tailwind CSS.
 
