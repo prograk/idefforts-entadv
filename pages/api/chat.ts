@@ -1,7 +1,8 @@
 import { OpenAIStream } from "@/utils";
 import { getEmbedding, initPinecone, queryVector } from "@/utils/pinecone";
+import { NextApiRequest, NextApiResponse } from "next";
 
-export default async function handler(req, res) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") {
       res.status(405).json({ error: "Method Not Allowed" });
@@ -22,8 +23,8 @@ export default async function handler(req, res) {
       const lastMsg = messages[messages.length - 1];
       userMessage = lastMsg.content;
       const embedding = await getEmbedding(userMessage);
-      const pineconeResults = await queryVector(process.env.PINECONE_INDEX_NAME, embedding, 5);
-      context = pineconeResults.map(r => r.metadata?.text).join("\n");
+      const pineconeResults = await queryVector(process.env.PINECONE_INDEX_NAME as string, embedding, 5);
+      context = pineconeResults.map(r => (r.metadata as { text?: string })?.text ?? "").join("\n");
       // Limit messages by char count
       const charLimit = 12000;
       let charCount = 0;
@@ -42,8 +43,11 @@ export default async function handler(req, res) {
 
       const stream = await OpenAIStream(messagesToSend);
       res.setHeader("Content-Type", "application/octet-stream");
-      for await (const chunk of stream) {
-        res.write(chunk);
+      const reader = stream.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(value);
       }
       res.end();
       return;
@@ -56,8 +60,9 @@ export default async function handler(req, res) {
 
     userMessage = message;
     const embedding = await getEmbedding(userMessage);
-    const pineconeResults = await queryVector(process.env.PINECONE_INDEX_NAME, embedding, 5);
-    context = pineconeResults.map(r => r.metadata?.content).join("\n");
+    const pineconeResults = await queryVector(process.env.PINECONE_INDEX_NAME as string, embedding, 5);
+    context = pineconeResults.map(r => (r.metadata as { text?: string })?.text ?? "").join("\n");
+
 
     const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -85,7 +90,7 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error("Chat API error:", error);
-    res.status(500).json({ error: error.message || "Internal Server Error" });
+    res.status(500).json({ error: (error as Error).message || "Internal Server Error" });
   }
 }
 
