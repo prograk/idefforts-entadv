@@ -1,6 +1,54 @@
+
+
+import { OpenAIModel } from "@/types";
 import { OpenAIStream } from "@/utils";
 import { getEmbedding, initPinecone, queryVector } from "@/utils/pinecone";
 import { NextApiRequest, NextApiResponse } from "next";
+
+async function parseUserQuery(userInput: string): Promise<{ filters: any, semantic_query: string | null }> {
+  const systemPrompt = `
+You are a query parser for a meetings database.
+Extract filters and/or semantic query from the user’s request.
+
+Valid filter fields:
+- meeting_date (YYYY-MM-DD)
+- meeting_duration_minutes ($gt, $lt, $eq)
+- invitees (array of names)
+- invitees_email (array of emails)
+- fathom_user_name
+- fathom_user_email
+
+Return JSON only with fields:
+{
+  "filters": { ... },
+  "semantic_query": string | null
+}
+`;
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: OpenAIModel.GPT_MINI,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userInput }
+      ],
+      temperature: 0,
+    }),
+  });
+
+  const data = await res.json();
+  try {
+    return JSON.parse(data.choices[0].message.content);
+  } catch (err) {
+    console.error("Failed to parse LLM output:", data);
+    return { filters: {}, semantic_query: userInput }; // fallback
+  }
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -9,7 +57,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return;
     }
 
-    // Support both { message } and { messages } for backward compatibility
     const { message, messages } = req.body;
 
     // Always initialize Pinecone
@@ -22,8 +69,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Use last message for context embedding
       const lastMsg = messages[messages.length - 1];
       userMessage = lastMsg.content;
-      const embedding = await getEmbedding(userMessage);
-      const pineconeResults = await queryVector(process.env.PINECONE_INDEX_NAME as string, embedding, 5);
+
+      const { filters, semantic_query } = await parseUserQuery(userMessage);
+
+      // const embedding = await getEmbedding(userMessage);
+
+      let embedding: number[] | null = null;
+      if (semantic_query) {
+        embedding = await getEmbedding(semantic_query);
+      }
+      // Only query Pinecone if embedding is valid
+      let pineconeResults: { metadata?: object }[] = [];
+      if (embedding && Array.isArray(embedding) && embedding.length > 0) {
+        // Only pass filter if it has at least one key-value pair
+        const hasValidFilter = filters && typeof filters === "object" && Object.keys(filters).length > 0;
+        pineconeResults = await queryVector(
+          process.env.PINECONE_INDEX_NAME as string,
+          embedding,
+          5,
+          hasValidFilter ? filters : undefined
+        );
+      }
       context = pineconeResults.map(r => (r.metadata as { text?: string })?.text ?? "").join("\n");
       // Limit messages by char count
       const charLimit = 12000;
@@ -37,11 +103,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         charCount += msg.content.length;
         messagesToSend.push(msg);
       }
-
+      
       // Add context as system message
-      messagesToSend.push({ role: "user", content: `Extract meeting details from this transcript:${context}` });
+      // messagesToSend.push({ role: "user", content: `User question: ${userMessage}` });
 
-      const stream = await OpenAIStream(messagesToSend);
+      const stream = await OpenAIStream(messagesToSend, context);
       res.setHeader("Content-Type", "application/octet-stream");
       const reader = stream.getReader();
       while (true) {
@@ -62,7 +128,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const embedding = await getEmbedding(userMessage);
     const pineconeResults = await queryVector(process.env.PINECONE_INDEX_NAME as string, embedding, 5);
     context = pineconeResults.map(r => (r.metadata as { text?: string })?.text ?? "").join("\n");
-
 
     const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

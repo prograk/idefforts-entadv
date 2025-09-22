@@ -46,7 +46,8 @@ export async function upsertVector(indexName: string, id: string, values: number
 export async function queryVector(
   indexName: string,
   embedding: number[],
-  topK: number = 5
+  topK: number = 5,
+  filters?: object
 ): Promise<QueryMatch[]> {
   const client = await initPinecone();
   const index = client.Index(indexName).namespace("default");
@@ -56,6 +57,7 @@ export async function queryVector(
     topK: topK ?? 5, // Ensure topK is always a number
     includeMetadata: true,
     // Add filter if needed
+    filter: filters ?? undefined
   };
 
   const response = await index.query(query as any);

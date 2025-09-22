@@ -1,9 +1,36 @@
 import { Message, OpenAIModel } from "@/types";
 import { createParser, ParsedEvent, ReconnectInterval } from "eventsource-parser";
 
-export const OpenAIStream = async (messages: Message[]) => {
+export const OpenAIStream = async (messages: Message[], context: any) => {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
+
+  const messagess = [
+      {
+        role: "system",
+        content: `# Role
+You are a helpful customer support representative for [Company Info: Idefforts]. 
+You ONLY answer questions using the knowledge base below.
+
+# Rules
+1. Always use the knowledge base provided in this message.
+2. If the knowledge base contains a transcript:
+   - If the user asks for **meeting notes, highlights, or a summary** → summarize the transcript into clear, concise meeting notes.
+   - If the user asks for the **transcript itself** → return the raw transcript text exactly as it appears (no paraphrasing).
+3. If relevant information is found, answer clearly and professionally.
+4. If no relevant information is found at all, say:  
+   "I wasn’t able to find that in our records. Could you clarify what you’re looking for within Idefforts?"
+5. Do not use outside world knowledge. Redirect off-topic questions politely.
+6. If unclear, ask clarifying questions.
+
+# Knowledge Base
+${context}
+`
+      },
+      ...messages
+    ];
+
+  console.log("messagess", messagess)
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     headers: {
@@ -12,14 +39,8 @@ export const OpenAIStream = async (messages: Message[]) => {
     },
     method: "POST",
     body: JSON.stringify({
-      model: OpenAIModel.DAVINCI_TURBO,
-      messages: [
-        {
-          role: "system",
-          content: "You are an assistant that extracts and summarizes information from meeting transcripts. When given a transcript, provide key details like participants, main topics, and important points discussed."
-        },
-        ...messages
-      ],
+      model: OpenAIModel.GPT_NANO,
+      messages: messagess,
       max_tokens: 800,
       temperature: 0.1,
       stream: true
