@@ -92,14 +92,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       context = pineconeResults.map(r => (r.metadata as { text?: string })?.text ?? "").join("\n");
       // Limit messages by char count
-      const charLimit = 12000;
+      // const charLimit = 12000;
       let charCount = 0;
       let messagesToSend = [];
       for (let i = 0; i < messages.length; i++) {
         const msg = messages[i];
-        if (charCount + msg.content.length > charLimit) {
-          break;
-        }
+        // if (charCount + msg.content.length > charLimit) {
+        //   break;
+        // }
         charCount += msg.content.length;
         messagesToSend.push(msg);
       }
